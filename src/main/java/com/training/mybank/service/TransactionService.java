@@ -1,5 +1,6 @@
 package com.training.mybank.service;
 
+import com.training.mybank.exceptions.AccountFrozenException;
 import com.training.mybank.repositories.AccountRepository;
 import com.training.mybank.repositories.TransactionRepository;
 import com.training.mybank.entities.AccountEntity;
@@ -33,19 +34,21 @@ public class TransactionService {
         try {
             em.getTransaction().begin();
 
+            AccountEntity account = accountRepository.findByUsername(em, username);
+
+            checkFrozen(account);
+
             if (amount <= 0) {
                 throw new IllegalArgumentException("Deposit amount must be positive");
             }
 
-            AccountEntity account = accountRepository.findByUsername(em, username);
-            double newBalance = account.getBalance() + amount;
-            account.setBalance(newBalance);
+            account.setBalance(account.getBalance() + amount);
 
             TransactionEntity tx = new TransactionEntity();
             tx.setToAccount(account);
             tx.setTransactionType("DEPOSIT");
             tx.setAmount(amount);
-            tx.setBalanceAfter(newBalance);
+            tx.setBalanceAfter(account.getBalance());
             tx.setRemarks("Deposit");
 
             em.merge(account);
@@ -54,14 +57,13 @@ public class TransactionService {
             em.getTransaction().commit();
 
         } catch (Exception e) {
-            if (em.getTransaction().isActive()) {
-                em.getTransaction().rollback();
-            }
+            if (em.getTransaction().isActive()) em.getTransaction().rollback();
             throw e;
         } finally {
-            em.close(); // ✅ CRITICAL
+            em.close();
         }
     }
+
 
     /* -------- WITHDRAW -------- */
 
@@ -72,24 +74,25 @@ public class TransactionService {
         try {
             em.getTransaction().begin();
 
+            AccountEntity account = accountRepository.findByUsername(em, username);
+
+            checkFrozen(account); // 🔒 BLOCK HERE
+
             if (amount <= 0) {
                 throw new IllegalArgumentException("Withdraw amount must be positive");
             }
-
-            AccountEntity account = accountRepository.findByUsername(em, username);
 
             if (account.getBalance() < amount) {
                 throw new InsufficientBalanceException("Insufficient balance");
             }
 
-            double newBalance = account.getBalance() - amount;
-            account.setBalance(newBalance);
+            account.setBalance(account.getBalance() - amount);
 
             TransactionEntity tx = new TransactionEntity();
             tx.setFromAccount(account);
             tx.setTransactionType("WITHDRAW");
             tx.setAmount(amount);
-            tx.setBalanceAfter(newBalance);
+            tx.setBalanceAfter(account.getBalance());
             tx.setRemarks("Withdraw");
 
             em.merge(account);
@@ -98,14 +101,13 @@ public class TransactionService {
             em.getTransaction().commit();
 
         } catch (Exception e) {
-            if (em.getTransaction().isActive()) {
-                em.getTransaction().rollback();
-            }
+            if (em.getTransaction().isActive()) em.getTransaction().rollback();
             throw e;
         } finally {
             em.close();
         }
     }
+
 
     /* -------- TRANSFER -------- */
 
@@ -116,15 +118,17 @@ public class TransactionService {
         try {
             em.getTransaction().begin();
 
+            AccountEntity from = accountRepository.findByUsername(em, fromUser);
+            AccountEntity to = accountRepository.findByUsername(em, toUser);
+
+            checkFrozen(from); // 🔒 BLOCK SENDER
+
             if (amount <= 0) {
                 throw new IllegalArgumentException("Transfer amount must be positive");
             }
 
-            AccountEntity from = accountRepository.findByUsername(em, fromUser);
-            AccountEntity to = accountRepository.findByUsername(em, toUser);
-
             if (from.getBalance() < amount) {
-                throw new InsufficientBalanceException("Insufficient balance for transfer");
+                throw new InsufficientBalanceException("Insufficient balance");
             }
 
             from.setBalance(from.getBalance() - amount);
@@ -136,7 +140,7 @@ public class TransactionService {
             tx.setTransactionType("TRANSFER");
             tx.setAmount(amount);
             tx.setBalanceAfter(from.getBalance());
-            tx.setRemarks("Transfer from " + fromUser + " to " + toUser);
+            tx.setRemarks("Transfer");
 
             em.merge(from);
             em.merge(to);
@@ -145,14 +149,13 @@ public class TransactionService {
             em.getTransaction().commit();
 
         } catch (Exception e) {
-            if (em.getTransaction().isActive()) {
-                em.getTransaction().rollback();
-            }
+            if (em.getTransaction().isActive()) em.getTransaction().rollback();
             throw e;
         } finally {
             em.close();
         }
     }
+
 
     /* -------- BALANCE -------- */
 
@@ -176,4 +179,12 @@ public class TransactionService {
             em.close();
         }
     }
+    private void checkFrozen(AccountEntity account) {
+        if (account.getIsFrozen()) {
+            throw new AccountFrozenException(
+                    "Account is frozen. Transactions are blocked."
+            );
+        }
+    }
+
 }

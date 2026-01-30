@@ -131,9 +131,10 @@ public class MenuUI {
             System.out.println("2. List All Users");
             System.out.println("3. View User Transactions");
             System.out.println("4. Add New User");
-            System.out.println("5. Freeze / Unfreeze Account");
-            System.out.println("6. List All Accounts");
-            System.out.println("7. Logout");
+            System.out.println("5. Freeze Account");
+            System.out.println("6. Unfreeze Account");
+            System.out.println("7. List All Accounts");
+            System.out.println("8. Logout");
             System.out.print("Choose option: ");
 
             int choice = readChoice();
@@ -145,8 +146,9 @@ public class MenuUI {
                     case 3 -> adminController.viewUserTransactions();
                     case 4 -> adminController.addUser();
                     case 5 -> adminController.freezeAccount();
-                    case 6 -> adminController.listAllAccounts();
-                    case 7 -> {
+                    case 6 -> adminController.unfreezeAccount();
+                    case 7 -> adminController.listAllAccounts();
+                    case 8 -> {
                         System.out.println("Logging out admin...");
                         return;
                     }

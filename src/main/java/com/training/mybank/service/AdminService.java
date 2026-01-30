@@ -122,5 +122,55 @@ public class AdminService {
             em.close();
         }
     }
+    public void freezeAccount(Long accountId) {
+
+        EntityManager em = emf.createEntityManager();
+        try {
+            em.getTransaction().begin();
+
+            AccountEntity acc = em.find(AccountEntity.class, accountId);
+            if (acc == null) {
+                throw new BankingException("Account not found");
+            }
+
+            if (acc.getIsFrozen()) {
+                throw new BankingException("Account is already frozen");
+            }
+
+            acc.setIsFrozen(true);
+            em.merge(acc);
+
+            em.getTransaction().commit();
+
+        } finally {
+            em.close();
+        }
+    }
+
+    public void unfreezeAccount(Long accountId) {
+
+        EntityManager em = emf.createEntityManager();
+        try {
+            em.getTransaction().begin();
+
+            AccountEntity acc = em.find(AccountEntity.class, accountId);
+            if (acc == null) {
+                throw new BankingException("Account not found");
+            }
+
+            if (!acc.getIsFrozen()) {
+                throw new BankingException("Account is not frozen");
+            }
+
+            acc.setIsFrozen(false);
+            em.merge(acc);
+
+            em.getTransaction().commit();
+
+        } finally {
+            em.close();
+        }
+    }
+
 
 }

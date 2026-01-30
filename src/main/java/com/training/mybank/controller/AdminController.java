@@ -114,13 +114,25 @@ public class AdminController {
 
     public void freezeAccount() {
 
-        System.out.print("Enter account ID: ");
+        System.out.print("Enter account ID to FREEZE: ");
         long accId = sc.nextLong();
-        sc.nextLine(); // clear buffer
+        sc.nextLine();
 
-        adminService.toggleFreezeAccount(accId);
+        adminService.freezeAccount(accId);
 
-        System.out.println("✅ Account freeze status updated.");
+        System.out.println("❄ Account has been FROZEN successfully.");
     }
+
+    public void unfreezeAccount() {
+
+        System.out.print("Enter account ID to UNFREEZE: ");
+        long accId = sc.nextLong();
+        sc.nextLine();
+
+        adminService.unfreezeAccount(accId);
+
+        System.out.println("🔥 Account has been UNFROZEN successfully.");
+    }
+
 
 }
