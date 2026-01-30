@@ -1,4 +1,4 @@
-package com.training.mybank.dao;
+package com.training.mybank.repositories;
 
 import com.training.mybank.entities.AccountEntity;
 import com.training.mybank.exceptions.BankingException;
@@ -7,7 +7,7 @@ import javax.persistence.EntityManager;
 import javax.persistence.NoResultException;
 import java.util.List;
 
-public class AccountDAO {
+public class AccountRepository {
 
     /* ---------- READ OPERATIONS ---------- */
 
@@ -73,6 +73,7 @@ public class AccountDAO {
                 AccountEntity.class
         ).getResultList();
     }
+    
 
     /* ---------- WRITE OPERATIONS ---------- */
 

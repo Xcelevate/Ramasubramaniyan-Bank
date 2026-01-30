@@ -2,15 +2,10 @@ package com.training.mybank.menu;
 
 import com.training.mybank.config.JPAConfig;
 import com.training.mybank.controller.*;
-import com.training.mybank.dao.AccountDAO;
-import com.training.mybank.dao.TransactionDAO;
-import com.training.mybank.dao.UserDAO;
-import com.training.mybank.exceptions.AuthenticationFailedException;
-import com.training.mybank.exceptions.BankingException;
-import com.training.mybank.service.AuthService;
-import com.training.mybank.service.ForgotPasswordService;
-import com.training.mybank.service.RegistrationService;
-import com.training.mybank.service.TransactionService;
+import com.training.mybank.entities.Role;
+import com.training.mybank.entities.UserEntity;
+import com.training.mybank.repositories.*;
+import com.training.mybank.service.*;
 
 import javax.persistence.EntityManagerFactory;
 import java.util.Scanner;
@@ -18,16 +13,15 @@ import java.util.Scanner;
 public class MenuUI {
 
     private final Scanner scanner = new Scanner(System.in);
-
     private EntityManagerFactory emf;
 
     private AuthController authController;
     private RegistrationController registrationController;
     private TransactionController transactionController;
     private ForgotPasswordController forgotPasswordController;
-    private AccountController accountController;
+    private AdminController adminController;
 
-    /* ---------------- ENTRY POINT ---------------- */
+    /* ================= ENTRY ================= */
 
     public void start() {
         initialize();
@@ -35,36 +29,43 @@ public class MenuUI {
         shutdown();
     }
 
-    /* ---------------- INITIALIZATION ---------------- */
+    /* ================= INIT ================= */
 
     private void initialize() {
 
-        EntityManagerFactory emf = JPAConfig.getEntityManagerFactory();
+        emf = JPAConfig.getEntityManagerFactory();
 
-        UserDAO userDAO = new UserDAO();
-        AccountDAO accountDAO = new AccountDAO();
-        TransactionDAO transactionDAO = new TransactionDAO();
+        UserRepository userRepository = new UserRepository();
+        AccountRepository accountRepository = new AccountRepository();
+        TransactionRepository transactionRepository = new TransactionRepository();
 
-        AuthService authService = new AuthService(emf, userDAO);
+        authController = new AuthController(
+                new AuthService(emf, userRepository)
+        );
 
-        RegistrationService registrationService =
-                new RegistrationService(emf, userDAO, accountDAO);
+        registrationController = new RegistrationController(
+                new RegistrationService(emf, userRepository, accountRepository)
+        );
 
-        ForgotPasswordService forgotPasswordService =
-                new ForgotPasswordService(emf, userDAO, accountDAO);
+        forgotPasswordController = new ForgotPasswordController(
+                new ForgotPasswordService(emf, userRepository, accountRepository)
+        );
 
-        TransactionService transactionService =
-                new TransactionService(emf, accountDAO, transactionDAO);
+        transactionController = new TransactionController(
+                new TransactionService(emf, accountRepository, transactionRepository)
+        );
 
-        authController = new AuthController(authService);
-        forgotPasswordController = new ForgotPasswordController(forgotPasswordService);
-        registrationController = new RegistrationController(registrationService);
-        transactionController = new TransactionController(transactionService);
-        accountController = new AccountController(emf, accountDAO);
+        AdminService adminService = new AdminService(
+                emf,
+                userRepository,
+                accountRepository,
+                transactionRepository
+        );
+
+        adminController = new AdminController(adminService);
     }
 
-
-    /* ---------------- MAIN MENU ---------------- */
+    /* ================= MAIN MENU ================= */
 
     private void mainMenu() {
 
@@ -78,101 +79,129 @@ public class MenuUI {
             int choice = readChoice();
 
             switch (choice) {
-                case 1:
+
+                case 1 -> {
                     registrationController.register();
                     pause();
-                    break;
+                }
 
-                case 2:
+                case 2 -> {
                     try {
-                        String user = authController.login();
-                        System.out.println("Login successful");
-                        userMenu(user);
+                        UserEntity user = authController.login();
+                        System.out.println("✅ Login successful");
 
-                    } catch (AuthenticationFailedException e) {
-                        System.out.println("Wrong credentials.");
-                        System.out.print("Forgot password? (Y/N): ");
-                        String forgot = scanner.nextLine();
-
-                        if (forgot.equalsIgnoreCase("Y")) {
-                            try {
-                                forgotPasswordController.forgotPassword();
-                            } catch (BankingException ex) {
-                                System.out.println("Error: " + ex.getMessage());
-                            }
+                        if (Role.ADMIN.equals(user.getRole())) {
+                            adminMenu(user);
+                        } else {
+                            userMenu(user.getUsername());
                         }
-                    } catch (BankingException e) {
-                        System.out.println("Error: " + e.getMessage());
-                    }
-                    break;
 
-                case 3:
+                    } catch (Exception e) {
+                        System.out.println("❌ Login failed: " + e.getMessage());
+                        System.out.print("Forgot password? (Y/N): ");
+
+                        String opt = scanner.nextLine();
+                        if (opt.equalsIgnoreCase("Y")) {
+                            forgotPasswordController.forgotPassword();
+                        }
+                    }
+                }
+
+                case 3 -> {
                     System.out.println("Thank you for using MyBank.");
                     return;
+                }
 
-                default:
-                    System.out.println("Invalid choice.");
+                default -> System.out.println("Invalid choice.");
             }
         }
     }
 
-    /* ---------------- USER MENU ---------------- */
+    /* ================= ADMIN MENU ================= */
 
-    private void userMenu(String username) {
+    private void adminMenu(UserEntity admin) {
 
         while (true) {
-            System.out.println("\n====== USER MENU ======");
-            System.out.println("1. Deposit");
-            System.out.println("2. Withdraw");
-            System.out.println("3. Transfer");
-            System.out.println("4. Check Balance");
-            System.out.println("5. Transaction History");
-            System.out.println("6. List Accounts");
+            System.out.println("\n================================");
+            System.out.println("        ADMIN CONTROL PANEL      ");
+            System.out.println("================================");
+            System.out.println("Logged in as : " + admin.getUsername());
+            System.out.println("--------------------------------");
+            System.out.println("1. Delete User (Soft Delete)");
+            System.out.println("2. List All Users");
+            System.out.println("3. View User Transactions");
+            System.out.println("4. Add New User");
+            System.out.println("5. Freeze / Unfreeze Account");
+            System.out.println("6. List All Accounts");
             System.out.println("7. Logout");
-            System.out.print("Choose: ");
+            System.out.print("Choose option: ");
 
             int choice = readChoice();
 
             try {
                 switch (choice) {
-                    case 1:
-                        transactionController.deposit(username);
-                        pause();
-                        break;
-                    case 2:
-                        transactionController.withdraw(username);
-                        pause();
-                        break;
-                    case 3:
-                        transactionController.transfer(username);
-                        pause();
-                        break;
-                    case 4:
-                        transactionController.balance(username);
-                        pause();
-                        break;
-                    case 5:
-                        transactionController.history(username);
-                        pause();
-                        break;
-                    case 6:
-                        accountController.listAccountsSortedByAccountNumber();
-                        pause();
-                        break;
-                    case 7:
-                        System.out.println("Logged out successfully.");
+                    case 1 -> adminController.deleteUser(admin.getUsername());
+                    case 2 -> adminController.listUsers();
+                    case 3 -> adminController.viewUserTransactions();
+                    case 4 -> adminController.addUser();
+                    case 5 -> adminController.freezeAccount();
+                    case 6 -> adminController.listAllAccounts();
+                    case 7 -> {
+                        System.out.println("Logging out admin...");
                         return;
-                    default:
-                        System.out.println("Invalid choice.");
+                    }
+                    default -> System.out.println("Invalid option. Try again.");
                 }
             } catch (Exception e) {
-                System.out.println("Error: " + e.getMessage());
-                pause();
+                System.out.println("❌ Error: " + e.getMessage());
             }
+
+            pause();
         }
     }
 
-    /* ---------------- HELPERS ---------------- */
+    /* ================= USER MENU ================= */
+
+    private void userMenu(String username) {
+
+        while (true) {
+            System.out.println("\n================================");
+            System.out.println("            USER DASHBOARD       ");
+            System.out.println("================================");
+            System.out.println("Logged in as : " + username);
+            System.out.println("--------------------------------");
+            System.out.println("1. Deposit");
+            System.out.println("2. Withdraw");
+            System.out.println("3. Transfer");
+            System.out.println("4. Check Balance");
+            System.out.println("5. Transaction History");
+            System.out.println("6. Logout");
+            System.out.print("Choose option: ");
+
+            int choice = readChoice();
+
+            try {
+                switch (choice) {
+                    case 1 -> transactionController.deposit(username);
+                    case 2 -> transactionController.withdraw(username);
+                    case 3 -> transactionController.transfer(username);
+                    case 4 -> transactionController.balance(username);
+                    case 5 -> transactionController.history(username);
+                    case 6 -> {
+                        System.out.println("Logged out successfully.");
+                        return;
+                    }
+                    default -> System.out.println("Invalid option. Try again.");
+                }
+            } catch (Exception e) {
+                System.out.println("❌ Operation failed: " + e.getMessage());
+            }
+
+            pause();
+        }
+    }
+
+    /* ================= HELPERS ================= */
 
     private int readChoice() {
         while (!scanner.hasNextInt()) {
@@ -180,7 +209,7 @@ public class MenuUI {
             scanner.next();
         }
         int value = scanner.nextInt();
-        scanner.nextLine();
+        scanner.nextLine(); // consume newline
         return value;
     }
 
@@ -189,7 +218,7 @@ public class MenuUI {
         scanner.nextLine();
     }
 
-    /* ---------------- SHUTDOWN ---------------- */
+    /* ================= SHUTDOWN ================= */
 
     private void shutdown() {
         if (emf != null && emf.isOpen()) {

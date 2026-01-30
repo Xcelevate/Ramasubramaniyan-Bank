@@ -1,6 +1,6 @@
 package com.training.mybank.controller;
 
-import com.training.mybank.dao.AccountDAO;
+import com.training.mybank.repositories.AccountRepository;
 import com.training.mybank.entities.AccountEntity;
 
 import javax.persistence.EntityManager;
@@ -11,11 +11,11 @@ import java.util.List;
 public class AccountController {
 
     private final EntityManagerFactory emf;
-    private final AccountDAO accountDAO;
+    private final AccountRepository accountRepository;
 
-    public AccountController(EntityManagerFactory emf, AccountDAO accountDAO) {
+    public AccountController(EntityManagerFactory emf, AccountRepository accountRepository) {
         this.emf = emf;
-        this.accountDAO = accountDAO;
+        this.accountRepository = accountRepository;
     }
 
     public void listAccountsSortedByAccountNumber() {
@@ -23,7 +23,7 @@ public class AccountController {
         EntityManager em = emf.createEntityManager();
 
         try {
-            List<AccountEntity> accounts = accountDAO.findAll(em);
+            List<AccountEntity> accounts = accountRepository.findAll(em);
 
             if (accounts.isEmpty()) {
                 System.out.println("\nNo accounts available.");

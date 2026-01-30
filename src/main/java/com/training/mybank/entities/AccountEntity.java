@@ -17,6 +17,16 @@ public class AccountEntity {
     private String username;
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt = LocalDateTime.now();
+    @Column(name = "is_frozen", nullable = false)
+    private boolean isFrozen = false;
+
+    public boolean getIsFrozen() {
+        return isFrozen;
+    }
+
+    public void setIsFrozen(boolean frozen) {
+        isFrozen = frozen;
+    }
 
     public double getBalance() {
         return balance;

@@ -1,10 +1,10 @@
 package com.training.mybank.service;
 
-import com.training.mybank.dao.AccountDAO;
-import com.training.mybank.dao.UserDAO;
 import com.training.mybank.entities.AccountEntity;
 import com.training.mybank.entities.UserEntity;
 import com.training.mybank.exceptions.InvalidRecoveryDetailsException;
+import com.training.mybank.repositories.AccountRepository;
+import com.training.mybank.repositories.UserRepository;
 import com.training.mybank.util.PasswordUtil;
 
 import javax.persistence.EntityManager;
@@ -13,32 +13,42 @@ import javax.persistence.EntityManagerFactory;
 public class ForgotPasswordService {
 
     private final EntityManagerFactory emf;
-    private final UserDAO userDAO;
-    private final AccountDAO accountDAO;
+    private final UserRepository userRepository;
+    private final AccountRepository accountRepository;
 
     public ForgotPasswordService(EntityManagerFactory emf,
-                                 UserDAO userDAO,
-                                 AccountDAO accountDAO) {
+                                 UserRepository userRepository,
+                                 AccountRepository accountRepository) {
         this.emf = emf;
-        this.userDAO = userDAO;
-        this.accountDAO = accountDAO;
+        this.userRepository = userRepository;
+        this.accountRepository = accountRepository;
     }
 
     /* ---------- VERIFY RECOVERY DETAILS ---------- */
 
-    private UserEntity verifyRecoveryDetails(
-            EntityManager em,
-            String username,
-            String email,
-            String accountNumber) {
+    private UserEntity verifyRecoveryDetails(EntityManager em,
+                                             String username,
+                                             String email,
+                                             String accountNumber) {
 
         UserEntity user =
-                userDAO.findByUsernameAndEmail(em, username, email);
+                userRepository.findByUsernameAndEmail(em, username, email);
 
         AccountEntity account =
-                accountDAO.findByUsernameAndAccountNumber(em, username, accountNumber);
+                accountRepository.findByUsernameAndAccountNumber(
+                        em, username, accountNumber
+                );
 
-        // If either lookup fails, DAO will throw exception
+        if (!user.getIsActive()) {
+            throw new InvalidRecoveryDetailsException("User account is inactive");
+        }
+
+        if (account.getIsFrozen()) {
+            throw new InvalidRecoveryDetailsException(
+                    "Account is frozen. Password reset not allowed"
+            );
+        }
+
         return user;
     }
 
@@ -60,22 +70,35 @@ public class ForgotPasswordService {
             em.getTransaction().begin();
 
             UserEntity user = verifyRecoveryDetails(
-                    em, username, email, accountNumber);
+                    em, username, email, accountNumber
+            );
 
             user.setPassword(PasswordUtil.hash(newPassword));
             em.merge(user);
 
             em.getTransaction().commit();
 
-        } catch (Exception e) {
+        }
+        catch (InvalidRecoveryDetailsException e) {
             if (em.getTransaction().isActive()) {
                 em.getTransaction().rollback();
             }
+            // user mistake → rethrow cleanly
+            throw e;
+
+        }
+        catch (Exception e) {
+            if (em.getTransaction().isActive()) {
+                em.getTransaction().rollback();
+            }
+            // real system failure
             throw new InvalidRecoveryDetailsException(
-                    "Invalid username, email, or account number"
+                    "Unable to reset password. Please verify your details and try again."
             );
-        } finally {
+        }
+        finally {
             em.close();
         }
     }
+
 }

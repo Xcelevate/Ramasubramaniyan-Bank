@@ -1,7 +1,7 @@
 package com.training.mybank.service;
 
-import com.training.mybank.dao.AccountDAO;
-import com.training.mybank.dao.UserDAO;
+import com.training.mybank.repositories.AccountRepository;
+import com.training.mybank.repositories.UserRepository;
 import com.training.mybank.entities.AccountEntity;
 import com.training.mybank.entities.UserEntity;
 import com.training.mybank.exceptions.BankingException;
@@ -14,15 +14,15 @@ import javax.persistence.EntityManagerFactory;
 public class RegistrationService {
 
     private final EntityManagerFactory emf;
-    private final UserDAO userDAO;
-    private final AccountDAO accountDAO;
+    private final UserRepository userRepository;
+    private final AccountRepository accountRepository;
 
     public RegistrationService(EntityManagerFactory emf,
-                               UserDAO userDAO,
-                               AccountDAO accountDAO) {
+                               UserRepository userRepository,
+                               AccountRepository accountRepository) {
         this.emf = emf;
-        this.userDAO = userDAO;
-        this.accountDAO = accountDAO;
+        this.userRepository = userRepository;
+        this.accountRepository = accountRepository;
     }
 
     public String register(String username,
@@ -36,7 +36,7 @@ public class RegistrationService {
             em.getTransaction().begin();
 
             // Check if user already exists
-            if (accountDAO.existsByUsername(em, username)) {
+            if (accountRepository.existsByUsername(em, username)) {
                 throw new BankingException("Username already exists");
             }
 
@@ -48,7 +48,7 @@ public class RegistrationService {
             user.setEmail(email);
             user.setIsActive(true);
 
-            userDAO.save(em, user);
+            userRepository.save(em, user);
 
             // Create account
             String accountNumber = AccountNumberGenerator.generate(em);
@@ -58,7 +58,7 @@ public class RegistrationService {
             account.setAccountNumber(accountNumber);
             account.setBalance(0.0);
 
-            accountDAO.save(em, account);
+            accountRepository.save(em, account);
 
             em.getTransaction().commit();
 

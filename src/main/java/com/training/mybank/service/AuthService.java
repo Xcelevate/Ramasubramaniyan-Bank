@@ -1,6 +1,6 @@
 package com.training.mybank.service;
 
-import com.training.mybank.dao.UserDAO;
+import com.training.mybank.repositories.UserRepository;
 import com.training.mybank.entities.UserEntity;
 import com.training.mybank.exceptions.AccountInactiveException;
 import com.training.mybank.exceptions.AuthenticationFailedException;
@@ -13,19 +13,19 @@ import javax.persistence.EntityManagerFactory;
 public class AuthService {
 
     private final EntityManagerFactory emf;
-    private final UserDAO userDAO;
+    private final UserRepository userRepository;
 
-    public AuthService(EntityManagerFactory emf, UserDAO userDAO) {
+    public AuthService(EntityManagerFactory emf, UserRepository userRepository) {
         this.emf = emf;
-        this.userDAO = userDAO;
+        this.userRepository = userRepository;
     }
 
-    public String login(String username, String password) {
+    public UserEntity login(String username, String password) {
 
         EntityManager em = emf.createEntityManager();
 
         try {
-            UserEntity user = userDAO.findByUsername(em, username);
+            UserEntity user = userRepository.findByUsername(em, username);
 
             if (!PasswordUtil.matches(password, user.getPassword())) {
                 throw new AuthenticationFailedException(
@@ -37,14 +37,12 @@ public class AuthService {
                 throw new AccountInactiveException("Account is inactive");
             }
 
-            return username;
+            return user;
 
         } catch (BankingException e) {
-            // domain exception → rethrow
             throw e;
 
         } catch (Exception e) {
-            // unexpected failure
             throw new AuthenticationFailedException(
                     "Authentication failed"
             );

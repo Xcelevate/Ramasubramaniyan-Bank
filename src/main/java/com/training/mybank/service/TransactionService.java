@@ -1,7 +1,7 @@
 package com.training.mybank.service;
 
-import com.training.mybank.dao.AccountDAO;
-import com.training.mybank.dao.TransactionDAO;
+import com.training.mybank.repositories.AccountRepository;
+import com.training.mybank.repositories.TransactionRepository;
 import com.training.mybank.entities.AccountEntity;
 import com.training.mybank.entities.TransactionEntity;
 import com.training.mybank.exceptions.InsufficientBalanceException;
@@ -13,15 +13,15 @@ import java.util.List;
 public class TransactionService {
 
     private final EntityManagerFactory emf;
-    private final AccountDAO accountDAO;
-    private final TransactionDAO transactionDAO;
+    private final AccountRepository accountRepository;
+    private final TransactionRepository transactionRepository;
 
     public TransactionService(EntityManagerFactory emf,
-                              AccountDAO accountDAO,
-                              TransactionDAO transactionDAO) {
+                              AccountRepository accountRepository,
+                              TransactionRepository transactionRepository) {
         this.emf = emf;
-        this.accountDAO = accountDAO;
-        this.transactionDAO = transactionDAO;
+        this.accountRepository = accountRepository;
+        this.transactionRepository = transactionRepository;
     }
 
     /* -------- DEPOSIT -------- */
@@ -37,7 +37,7 @@ public class TransactionService {
                 throw new IllegalArgumentException("Deposit amount must be positive");
             }
 
-            AccountEntity account = accountDAO.findByUsername(em, username);
+            AccountEntity account = accountRepository.findByUsername(em, username);
             double newBalance = account.getBalance() + amount;
             account.setBalance(newBalance);
 
@@ -49,7 +49,7 @@ public class TransactionService {
             tx.setRemarks("Deposit");
 
             em.merge(account);
-            transactionDAO.save(em, tx);
+            transactionRepository.save(em, tx);
 
             em.getTransaction().commit();
 
@@ -76,7 +76,7 @@ public class TransactionService {
                 throw new IllegalArgumentException("Withdraw amount must be positive");
             }
 
-            AccountEntity account = accountDAO.findByUsername(em, username);
+            AccountEntity account = accountRepository.findByUsername(em, username);
 
             if (account.getBalance() < amount) {
                 throw new InsufficientBalanceException("Insufficient balance");
@@ -93,7 +93,7 @@ public class TransactionService {
             tx.setRemarks("Withdraw");
 
             em.merge(account);
-            transactionDAO.save(em, tx);
+            transactionRepository.save(em, tx);
 
             em.getTransaction().commit();
 
@@ -120,8 +120,8 @@ public class TransactionService {
                 throw new IllegalArgumentException("Transfer amount must be positive");
             }
 
-            AccountEntity from = accountDAO.findByUsername(em, fromUser);
-            AccountEntity to = accountDAO.findByUsername(em, toUser);
+            AccountEntity from = accountRepository.findByUsername(em, fromUser);
+            AccountEntity to = accountRepository.findByUsername(em, toUser);
 
             if (from.getBalance() < amount) {
                 throw new InsufficientBalanceException("Insufficient balance for transfer");
@@ -140,7 +140,7 @@ public class TransactionService {
 
             em.merge(from);
             em.merge(to);
-            transactionDAO.save(em, tx);
+            transactionRepository.save(em, tx);
 
             em.getTransaction().commit();
 
@@ -159,7 +159,7 @@ public class TransactionService {
     public double checkBalance(String username) {
         EntityManager em = emf.createEntityManager();
         try {
-            return accountDAO.findByUsername(em, username).getBalance();
+            return accountRepository.findByUsername(em, username).getBalance();
         } finally {
             em.close();
         }
@@ -170,8 +170,8 @@ public class TransactionService {
     public List<TransactionEntity> getTransactionHistory(String username) {
         EntityManager em = emf.createEntityManager();
         try {
-            AccountEntity account = accountDAO.findByUsername(em, username);
-            return transactionDAO.findByAccountId(em, account.getId());
+            AccountEntity account = accountRepository.findByUsername(em, username);
+            return transactionRepository.findByAccountId(em, account.getId());
         } finally {
             em.close();
         }
