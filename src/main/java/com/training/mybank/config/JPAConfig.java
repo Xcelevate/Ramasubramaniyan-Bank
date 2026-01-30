@@ -1,23 +1,28 @@
 package com.training.mybank.config;
 
-import javax.persistence.EntityManager;
 import javax.persistence.EntityManagerFactory;
 import javax.persistence.Persistence;
 
-public class JPAConfig {
-    public static final EntityManagerFactory emf = Persistence.createEntityManagerFactory("bankPU");
+public final class JPAConfig {
 
-    public JPAConfig() {
+    private static final EntityManagerFactory emf =
+            Persistence.createEntityManagerFactory("bankPU");
+
+    private JPAConfig() {
+        // prevent instantiation
     }
 
-    public static EntityManager getEntityManager() {
-        return emf.createEntityManager();
+    /* -------- FACTORY ACCESS -------- */
+
+    public static EntityManagerFactory getEntityManagerFactory() {
+        return emf;
     }
 
-    public void shutdown() {
-        if (emf.isOpen()) {
+    /* -------- SHUTDOWN -------- */
+
+    public static void shutdown() {
+        if (emf != null && emf.isOpen()) {
             emf.close();
         }
-
     }
 }

@@ -23,9 +23,8 @@ public class AccountNumberGenerator {
 
             // check uniqueness using JPA
             Long count = em.createQuery(
-                            "SELECT COUNT(a) FROM AccountEntity a WHERE a.accountNumber = :acc",
-                            Long.class
-                    ).setParameter("acc", accountNumber)
+                    "SELECT COUNT(a) FROM AccountEntity a WHERE a.accountNumber = :acc",
+                    Long.class).setParameter("acc", accountNumber)
                     .getSingleResult();
 
             if (count == 0) {

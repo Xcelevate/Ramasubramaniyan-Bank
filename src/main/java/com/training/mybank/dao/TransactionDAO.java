@@ -7,17 +7,16 @@ import java.util.List;
 
 public class TransactionDAO {
 
-    private final EntityManager em;
+    /* ---------- WRITE OPERATION ---------- */
 
-    public TransactionDAO(EntityManager em) {
-        this.em = em;
-    }
-
-    public void save(TransactionEntity tx) {
+    public void save(EntityManager em, TransactionEntity tx) {
         em.persist(tx);
     }
 
-    public List<TransactionEntity> findByAccountId(Long accountId) {
+
+    /* ---------- READ OPERATION ---------- */
+
+    public List<TransactionEntity> findByAccountId(EntityManager em, Long accountId) {
         return em.createQuery(
                         "SELECT t FROM TransactionEntity t " +
                                 "WHERE t.fromAccount.id = :id OR t.toAccount.id = :id " +

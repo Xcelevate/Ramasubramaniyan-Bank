@@ -7,18 +7,19 @@ import com.training.mybank.entities.TransactionEntity;
 import com.training.mybank.exceptions.InsufficientBalanceException;
 
 import javax.persistence.EntityManager;
+import javax.persistence.EntityManagerFactory;
 import java.util.List;
 
 public class TransactionService {
 
-    private final EntityManager em;
+    private final EntityManagerFactory emf;
     private final AccountDAO accountDAO;
     private final TransactionDAO transactionDAO;
 
-    public TransactionService(EntityManager em,
+    public TransactionService(EntityManagerFactory emf,
                               AccountDAO accountDAO,
                               TransactionDAO transactionDAO) {
-        this.em = em;
+        this.emf = emf;
         this.accountDAO = accountDAO;
         this.transactionDAO = transactionDAO;
     }
@@ -27,91 +28,152 @@ public class TransactionService {
 
     public void deposit(String username, double amount) {
 
-        em.getTransaction().begin();
+        EntityManager em = emf.createEntityManager();
 
-        AccountEntity account = accountDAO.findByUsername(username);
-        double newBalance = account.getBalance() + amount;
-        account.setBalance(newBalance);
+        try {
+            em.getTransaction().begin();
 
-        TransactionEntity tx = new TransactionEntity();
-        tx.setToAccount(account);
-        tx.setTransactionType("DEPOSIT");
-        tx.setAmount(amount);
-        tx.setBalanceAfter(newBalance);
+            if (amount <= 0) {
+                throw new IllegalArgumentException("Deposit amount must be positive");
+            }
 
-        em.merge(account);
-        transactionDAO.save(tx);
+            AccountEntity account = accountDAO.findByUsername(em, username);
+            double newBalance = account.getBalance() + amount;
+            account.setBalance(newBalance);
 
-        em.getTransaction().commit();
+            TransactionEntity tx = new TransactionEntity();
+            tx.setToAccount(account);
+            tx.setTransactionType("DEPOSIT");
+            tx.setAmount(amount);
+            tx.setBalanceAfter(newBalance);
+            tx.setRemarks("Deposit");
+
+            em.merge(account);
+            transactionDAO.save(em, tx);
+
+            em.getTransaction().commit();
+
+        } catch (Exception e) {
+            if (em.getTransaction().isActive()) {
+                em.getTransaction().rollback();
+            }
+            throw e;
+        } finally {
+            em.close(); // ✅ CRITICAL
+        }
     }
 
     /* -------- WITHDRAW -------- */
 
     public void withdraw(String username, double amount) {
 
-        em.getTransaction().begin();
+        EntityManager em = emf.createEntityManager();
 
-        AccountEntity account = accountDAO.findByUsername(username);
+        try {
+            em.getTransaction().begin();
 
-        if (account.getBalance() < amount) {
-            em.getTransaction().rollback();
-            throw new InsufficientBalanceException(
-                    "Insufficient balance");
+            if (amount <= 0) {
+                throw new IllegalArgumentException("Withdraw amount must be positive");
+            }
+
+            AccountEntity account = accountDAO.findByUsername(em, username);
+
+            if (account.getBalance() < amount) {
+                throw new InsufficientBalanceException("Insufficient balance");
+            }
+
+            double newBalance = account.getBalance() - amount;
+            account.setBalance(newBalance);
+
+            TransactionEntity tx = new TransactionEntity();
+            tx.setFromAccount(account);
+            tx.setTransactionType("WITHDRAW");
+            tx.setAmount(amount);
+            tx.setBalanceAfter(newBalance);
+            tx.setRemarks("Withdraw");
+
+            em.merge(account);
+            transactionDAO.save(em, tx);
+
+            em.getTransaction().commit();
+
+        } catch (Exception e) {
+            if (em.getTransaction().isActive()) {
+                em.getTransaction().rollback();
+            }
+            throw e;
+        } finally {
+            em.close();
         }
-
-        double newBalance = account.getBalance() - amount;
-        account.setBalance(newBalance);
-
-        TransactionEntity tx = new TransactionEntity();
-        tx.setFromAccount(account);
-        tx.setTransactionType("WITHDRAW");
-        tx.setAmount(amount);
-        tx.setBalanceAfter(newBalance);
-
-        em.merge(account);
-        transactionDAO.save(tx);
-
-        em.getTransaction().commit();
     }
 
     /* -------- TRANSFER -------- */
 
     public void transfer(String fromUser, String toUser, double amount) {
 
-        em.getTransaction().begin();
+        EntityManager em = emf.createEntityManager();
 
-        AccountEntity from = accountDAO.findByUsername(fromUser);
-        AccountEntity to = accountDAO.findByUsername(toUser);
+        try {
+            em.getTransaction().begin();
 
-        if (from.getBalance() < amount) {
-            em.getTransaction().rollback();
-            throw new InsufficientBalanceException(
-                    "Insufficient balance for transfer");
+            if (amount <= 0) {
+                throw new IllegalArgumentException("Transfer amount must be positive");
+            }
+
+            AccountEntity from = accountDAO.findByUsername(em, fromUser);
+            AccountEntity to = accountDAO.findByUsername(em, toUser);
+
+            if (from.getBalance() < amount) {
+                throw new InsufficientBalanceException("Insufficient balance for transfer");
+            }
+
+            from.setBalance(from.getBalance() - amount);
+            to.setBalance(to.getBalance() + amount);
+
+            TransactionEntity tx = new TransactionEntity();
+            tx.setFromAccount(from);
+            tx.setToAccount(to);
+            tx.setTransactionType("TRANSFER");
+            tx.setAmount(amount);
+            tx.setBalanceAfter(from.getBalance());
+            tx.setRemarks("Transfer from " + fromUser + " to " + toUser);
+
+            em.merge(from);
+            em.merge(to);
+            transactionDAO.save(em, tx);
+
+            em.getTransaction().commit();
+
+        } catch (Exception e) {
+            if (em.getTransaction().isActive()) {
+                em.getTransaction().rollback();
+            }
+            throw e;
+        } finally {
+            em.close();
         }
-
-        from.setBalance(from.getBalance() - amount);
-        to.setBalance(to.getBalance() + amount);
-
-        TransactionEntity tx = new TransactionEntity();
-        tx.setFromAccount(from);
-        tx.setToAccount(to);
-        tx.setTransactionType("TRANSFER");
-        tx.setAmount(amount);
-        tx.setBalanceAfter(from.getBalance());
-
-        em.merge(from);
-        em.merge(to);
-        transactionDAO.save(tx);
-
-        em.getTransaction().commit();
     }
+
+    /* -------- BALANCE -------- */
 
     public double checkBalance(String username) {
-        return accountDAO.findByUsername(username).getBalance();
+        EntityManager em = emf.createEntityManager();
+        try {
+            return accountDAO.findByUsername(em, username).getBalance();
+        } finally {
+            em.close();
+        }
     }
 
+    /* -------- TRANSACTION HISTORY -------- */
+
     public List<TransactionEntity> getTransactionHistory(String username) {
-        AccountEntity account = accountDAO.findByUsername(username);
-        return transactionDAO.findByAccountId(account.getId());
+        EntityManager em = emf.createEntityManager();
+        try {
+            AccountEntity account = accountDAO.findByUsername(em, username);
+            return transactionDAO.findByAccountId(em, account.getId());
+        } finally {
+            em.close();
+        }
     }
 }

@@ -18,10 +18,8 @@ public class AuthController {
 
         System.out.print("Username: ");
         String username = sc.nextLine();
-
         System.out.print("Password: ");
         String password = sc.nextLine();
-
         return authService.login(username, password);
     }
 }

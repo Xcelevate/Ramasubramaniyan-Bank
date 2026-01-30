@@ -19,7 +19,7 @@ public class TransactionEntity {
     @JoinColumn(name = "to_account_id")
     private AccountEntity toAccount;
 
-    @Column(nullable = false)
+    @Column(name = "transaction_type", nullable = false)
     private String transactionType; // DEPOSIT, WITHDRAW, TRANSFER
 
     @Column(nullable = false)

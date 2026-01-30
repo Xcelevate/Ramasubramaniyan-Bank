@@ -8,42 +8,37 @@ import com.training.mybank.exceptions.InvalidRecoveryDetailsException;
 import com.training.mybank.util.PasswordUtil;
 
 import javax.persistence.EntityManager;
+import javax.persistence.EntityManagerFactory;
 
 public class ForgotPasswordService {
 
-    private final EntityManager em;
+    private final EntityManagerFactory emf;
     private final UserDAO userDAO;
     private final AccountDAO accountDAO;
 
-    public ForgotPasswordService(EntityManager em,
+    public ForgotPasswordService(EntityManagerFactory emf,
                                  UserDAO userDAO,
                                  AccountDAO accountDAO) {
-        this.em = em;
+        this.emf = emf;
         this.userDAO = userDAO;
         this.accountDAO = accountDAO;
     }
 
-    /* ---------- SINGLE VERIFICATION METHOD ---------- */
+    /* ---------- VERIFY RECOVERY DETAILS ---------- */
 
     private UserEntity verifyRecoveryDetails(
+            EntityManager em,
             String username,
             String email,
             String accountNumber) {
 
         UserEntity user =
-                userDAO.findByUsernameAndEmail(username, email);
-
-        if (user == null) {
-            return null;
-        }
+                userDAO.findByUsernameAndEmail(em, username, email);
 
         AccountEntity account =
-                accountDAO.findByUsernameAndAccountNumber(username, accountNumber);
+                accountDAO.findByUsernameAndAccountNumber(em, username, accountNumber);
 
-        if (account == null) {
-            return null;
-        }
-
+        // If either lookup fails, DAO will throw exception
         return user;
     }
 
@@ -56,23 +51,31 @@ public class ForgotPasswordService {
                               String confirmPassword) {
 
         if (!newPassword.equals(confirmPassword)) {
-            throw new InvalidRecoveryDetailsException(
-                    "Passwords do not match");
+            throw new InvalidRecoveryDetailsException("Passwords do not match");
         }
 
-        UserEntity user =
-                verifyRecoveryDetails(username, email, accountNumber);
+        EntityManager em = emf.createEntityManager();
 
-        if (user == null) {
+        try {
+            em.getTransaction().begin();
+
+            UserEntity user = verifyRecoveryDetails(
+                    em, username, email, accountNumber);
+
+            user.setPassword(PasswordUtil.hash(newPassword));
+            em.merge(user);
+
+            em.getTransaction().commit();
+
+        } catch (Exception e) {
+            if (em.getTransaction().isActive()) {
+                em.getTransaction().rollback();
+            }
             throw new InvalidRecoveryDetailsException(
-                    "Invalid username, email, or account number");
+                    "Invalid username, email, or account number"
+            );
+        } finally {
+            em.close();
         }
-
-        em.getTransaction().begin();
-
-        user.setPassword(PasswordUtil.hash(newPassword));
-        em.merge(user);
-
-        em.getTransaction().commit();
     }
 }
