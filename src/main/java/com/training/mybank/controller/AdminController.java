@@ -42,6 +42,7 @@ public class AdminController {
         System.out.println("----------------------------------------------------");
         System.out.println("Total users: " + users.size());
     }
+
     public void listAllAccounts() {
 
         List<AccountEntity> accounts = adminService.listAllAccounts();
@@ -63,7 +64,6 @@ public class AdminController {
         System.out.println("Total accounts: " + accounts.size());
     }
 
-
     public void viewUserTransactions() {
 
         System.out.print("Enter username to view transactions: ");
@@ -84,7 +84,6 @@ public class AdminController {
         System.out.println("---------------------------------------------");
     }
 
-
     public void addUser() {
 
         UserEntity user = new UserEntity();
@@ -94,23 +93,24 @@ public class AdminController {
         System.out.print("Username: ");
         user.setUsername(sc.nextLine());
 
+        System.out.print("Password: ");
+        user.setPassword(PasswordUtil.hash(sc.nextLine()));
+
         System.out.print("Email: ");
         user.setEmail(sc.nextLine());
 
         System.out.print("Full Name: ");
         user.setFullName(sc.nextLine());
 
-        System.out.print("Password: ");
-        user.setPassword(PasswordUtil.hash(sc.nextLine()));
+        System.out.print("Role (ADMIN / USER): ");
+        user.setRole(Role.valueOf(sc.nextLine().toUpperCase())); // ✅ FIX
 
-        user.setRole(Role.USER);
         user.setIsActive(true);
 
         adminService.addUser(user);
 
         System.out.println("✅ User created successfully.");
     }
-
 
     public void freezeAccount() {
 
@@ -133,6 +133,4 @@ public class AdminController {
 
         System.out.println("🔥 Account has been UNFROZEN successfully.");
     }
-
-
 }

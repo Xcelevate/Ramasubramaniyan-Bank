@@ -1,5 +1,6 @@
 package com.training.mybank.service;
 
+import com.training.mybank.entities.Role;
 import com.training.mybank.repositories.AccountRepository;
 import com.training.mybank.repositories.UserRepository;
 import com.training.mybank.entities.AccountEntity;
@@ -47,6 +48,11 @@ public class RegistrationService {
             user.setFullName(fullName);
             user.setEmail(email);
             user.setIsActive(true);
+            if ("admin".equalsIgnoreCase(username)) {
+                throw new BankingException("Username 'admin' is reserved");
+            }
+
+            user.setRole(Role.USER);
 
             userRepository.save(em, user);
 

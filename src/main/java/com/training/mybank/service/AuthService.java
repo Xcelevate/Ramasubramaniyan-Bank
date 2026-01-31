@@ -27,6 +27,12 @@ public class AuthService {
         try {
             UserEntity user = userRepository.findByUsername(em, username);
 
+            if (user == null) {
+                throw new AuthenticationFailedException(
+                        "Invalid username or password"
+                );
+            }
+
             if (!PasswordUtil.matches(password, user.getPassword())) {
                 throw new AuthenticationFailedException(
                         "Invalid username or password"
@@ -35,6 +41,12 @@ public class AuthService {
 
             if (!user.getIsActive()) {
                 throw new AccountInactiveException("Account is inactive");
+            }
+
+            if (user.getRole() == null) {
+                throw new AuthenticationFailedException(
+                        "User role not assigned"
+                );
             }
 
             return user;

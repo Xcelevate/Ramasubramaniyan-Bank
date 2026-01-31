@@ -27,14 +27,17 @@ public class UserRepository {
 
     // SAFE – returns null
     public UserEntity findOptionalByUsername(EntityManager em, String username) {
-        return em.createQuery(
-                        "SELECT u FROM UserEntity u WHERE u.username = :username",
-                        UserEntity.class
-                ).setParameter("username", username)
-                .getResultStream()
-                .findFirst()
-                .orElse(null);
+        try {
+            return em.createQuery(
+                            "SELECT u FROM UserEntity u WHERE u.username = :username",
+                            UserEntity.class
+                    ).setParameter("username", username)
+                    .getSingleResult();
+        } catch (Exception e) {
+            return null;
+        }
     }
+
 
     public UserEntity findByUsernameAndEmail(
             EntityManager em, String username, String email) {

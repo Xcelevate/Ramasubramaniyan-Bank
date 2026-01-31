@@ -25,6 +25,18 @@ public class AdminService {
         this.transactionRepository = transactionRepository;
     }
 
+    /* -------- INTERNAL ADMIN CHECK -------- */
+
+    private UserEntity validateAdmin(EntityManager em, String adminUsername) {
+        UserEntity admin = userRepository.findByUsername(em, adminUsername);
+
+        if (admin.getRole() != Role.ADMIN) {
+            throw new BankingException("Access denied: Admin privileges required");
+        }
+
+        return admin;
+    }
+
     /* -------- DELETE USER (SOFT DELETE) -------- */
 
     public void deleteUser(String adminUsername, String targetUsername) {
@@ -34,13 +46,15 @@ public class AdminService {
         try {
             em.getTransaction().begin();
 
-            UserEntity admin = userRepository.findByUsername(em, adminUsername);
-            UserEntity target = userRepository.findOptionalByUsername(em, targetUsername);
+            validateAdmin(em, adminUsername); // ✅ FIX
+
+            UserEntity target =
+                    userRepository.findOptionalByUsername(em, targetUsername);
 
             if (target == null)
                 throw new BankingException("User not found");
 
-            if (admin.getUsername().equals(target.getUsername()))
+            if (adminUsername.equals(targetUsername))
                 throw new BankingException("Admin cannot delete himself");
 
             if (target.getRole() == Role.ADMIN)
@@ -84,6 +98,11 @@ public class AdminService {
     /* -------- ADD USER -------- */
 
     public void addUser(UserEntity user) {
+
+        if (user.getRole() == null) {
+            throw new BankingException("User role must be specified");
+        }
+
         EntityManager em = emf.createEntityManager();
         try {
             em.getTransaction().begin();
@@ -96,7 +115,8 @@ public class AdminService {
 
     /* -------- FREEZE / UNFREEZE ACCOUNT -------- */
 
-    public void toggleFreezeAccount(Long accountId) {
+    public void freezeAccount(Long accountId) {
+
         EntityManager em = emf.createEntityManager();
         try {
             em.getTransaction().begin();
@@ -105,7 +125,32 @@ public class AdminService {
             if (acc == null)
                 throw new BankingException("Account not found");
 
-            acc.setIsFrozen(!acc.getIsFrozen());
+            if (acc.getIsFrozen())
+                throw new BankingException("Account already frozen");
+
+            acc.setIsFrozen(true);
+            em.merge(acc);
+
+            em.getTransaction().commit();
+        } finally {
+            em.close();
+        }
+    }
+
+    public void unfreezeAccount(Long accountId) {
+
+        EntityManager em = emf.createEntityManager();
+        try {
+            em.getTransaction().begin();
+
+            AccountEntity acc = em.find(AccountEntity.class, accountId);
+            if (acc == null)
+                throw new BankingException("Account not found");
+
+            if (!acc.getIsFrozen())
+                throw new BankingException("Account is not frozen");
+
+            acc.setIsFrozen(false);
             em.merge(acc);
 
             em.getTransaction().commit();
@@ -122,55 +167,4 @@ public class AdminService {
             em.close();
         }
     }
-    public void freezeAccount(Long accountId) {
-
-        EntityManager em = emf.createEntityManager();
-        try {
-            em.getTransaction().begin();
-
-            AccountEntity acc = em.find(AccountEntity.class, accountId);
-            if (acc == null) {
-                throw new BankingException("Account not found");
-            }
-
-            if (acc.getIsFrozen()) {
-                throw new BankingException("Account is already frozen");
-            }
-
-            acc.setIsFrozen(true);
-            em.merge(acc);
-
-            em.getTransaction().commit();
-
-        } finally {
-            em.close();
-        }
-    }
-
-    public void unfreezeAccount(Long accountId) {
-
-        EntityManager em = emf.createEntityManager();
-        try {
-            em.getTransaction().begin();
-
-            AccountEntity acc = em.find(AccountEntity.class, accountId);
-            if (acc == null) {
-                throw new BankingException("Account not found");
-            }
-
-            if (!acc.getIsFrozen()) {
-                throw new BankingException("Account is not frozen");
-            }
-
-            acc.setIsFrozen(false);
-            em.merge(acc);
-
-            em.getTransaction().commit();
-
-        } finally {
-            em.close();
-        }
-    }
-
-
 }
